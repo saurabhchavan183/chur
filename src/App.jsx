@@ -1,4 +1,3 @@
-// src/App.jsx
 import { useState } from 'react';
 import { STATUS_COLORS, PROBLEM_LISTS } from './constants';
 import Editor from './Editor';
@@ -8,9 +7,20 @@ function App() {
   const [view, setView] = useState('dashboard');
   const [activeProblem, setActiveProblem] = useState(null);
   
-  // FIXED: Moved state and fetch logic inside the component
   const [expandedProblem, setExpandedProblem] = useState(null);
   const [problemHtml, setProblemHtml] = useState("");
+
+  // Track the status for each problem ID independently
+  const [problemStatuses, setProblemStatuses] = useState({});
+  const STATUS_CYCLE = ['Unread', 'Blank', 'Think', 'Ready', 'Done'];
+
+  const toggleStatus = (id) => {
+    setProblemStatuses(prev => {
+      const currentStatus = prev[id] || 'Unread';
+      const nextIndex = (STATUS_CYCLE.indexOf(currentStatus) + 1) % STATUS_CYCLE.length;
+      return { ...prev, [id]: STATUS_CYCLE[nextIndex] };
+    });
+  };
 
   const toggleProblem = async (id) => {
     if (expandedProblem === id) {
@@ -20,7 +30,7 @@ function App() {
     
     setExpandedProblem(id);
     
-    // Injecting a mock DOM to bypass Cloudflare for prototype testing
+    // Using the mocked problem statement to bypass Cloudflare for the prototype
     setProblemHtml(`
       <div class="problem-statement">
         <div class="header">
@@ -59,8 +69,11 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white font-sans selection:bg-blue-500">
-      <div className="sticky top-0 bg-gray-800 p-3 shadow-md z-10 flex justify-center">
+    // Fixed height container to respect the global overflow hidden
+    <div className="flex flex-col h-[100dvh] bg-gray-900 text-white font-sans selection:bg-blue-500">
+      
+      {/* Top Bar - pinned to the top */}
+      <div className="shrink-0 bg-gray-800 p-3 shadow-md z-10 flex justify-center border-b border-gray-700">
         <select 
           className="bg-transparent text-xl font-bold text-center outline-none cursor-pointer appearance-none"
           value={activeList}
@@ -74,9 +87,10 @@ function App() {
         </select>
       </div>
 
-      <div className="pb-20">
+      {/* Problem List - allows vertical scrolling */}
+      <div className="flex-1 overflow-y-auto pb-20">
         {PROBLEM_LISTS[activeList].map((p, i) => {
-          const status = 'Unread'; 
+          const status = problemStatuses[p.id] || 'Unread'; 
           
           return (
             <div key={p.id} className="border-b border-gray-700 p-2 flex flex-col">
@@ -104,7 +118,10 @@ function App() {
                   {p.name}
                 </button>
 
-                <button className={`px-2 py-1 rounded text-xs border border-gray-600 ${STATUS_COLORS[status]}`}>
+                <button 
+                  onClick={() => toggleStatus(p.id)}
+                  className={`px-2 py-1 rounded text-xs border border-gray-600 min-w-[60px] ${STATUS_COLORS[status] || 'text-gray-400'}`}
+                >
                   {status}
                 </button>
               </div>
