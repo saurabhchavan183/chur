@@ -248,7 +248,7 @@ export default function Editor({ problemId, goBack }) {
     [ { t: 'list(map(int, input().split()))', c: 'bg-indigo-700' } ]
   ];
 
-  const btnClass = "flex items-center justify-center bg-gray-700 rounded-xl active:bg-gray-500 font-mono text-2xl shadow-sm text-gray-100 h-[56px]";
+  const btnClass = "flex items-center justify-center bg-gray-700 rounded-xl active:bg-gray-500 font-mono text-2xl shadow-sm text-gray-100 h-[48px]";
   const btnRowClass = "flex justify-center gap-2 w-full";
 
   return (
@@ -389,7 +389,7 @@ export default function Editor({ problemId, goBack }) {
             <div className="flex flex-col gap-3 overflow-x-auto touch-pan-x w-full max-w-[100vw] pb-1">
               {IMPORTS_ROWS.map((row, i) => (
                 <div key={i} className="flex gap-2 w-max">
-                  {row.map(btn => ( <button key={btn.w} onClick={() => insertImportAndWord(btn.w, btn.m, btn.noBracket)} className={`h-[56px] flex items-center justify-center px-5 rounded-xl active:opacity-80 shadow-sm font-mono text-lg font-medium text-gray-100 shrink-0 ${btn.c}`}>{btn.w}</button> ))}
+                  {row.map(btn => ( <button key={btn.w} onClick={() => insertImportAndWord(btn.w, btn.m, btn.noBracket)} className={`h-[48px] flex items-center justify-center px-5 rounded-xl active:opacity-80 shadow-sm font-mono text-lg font-medium text-gray-100 shrink-0 ${btn.c}`}>{btn.w}</button> ))}
                 </div>
               ))}
             </div>
@@ -397,7 +397,7 @@ export default function Editor({ problemId, goBack }) {
 
           {activeLayer === 'snippets' && SNIPPETS.map((row, i) => (
             <div key={i} className="flex gap-2 w-full">
-              {row.map(s => ( <button key={s.t} onClick={() => insertSnippet(s.t)} style={{ flex: 1 }} className={`h-[56px] flex items-center justify-center rounded-xl active:opacity-80 shadow-sm font-mono text-sm font-medium text-gray-100 ${s.c}`}>{s.t}</button> ))}
+              {row.map(s => ( <button key={s.t} onClick={() => insertSnippet(s.t)} style={{ flex: 1 }} className={`h-[48px] flex items-center justify-center rounded-xl active:opacity-80 shadow-sm font-mono text-sm font-medium text-gray-100 ${s.c}`}>{s.t}</button> ))}
             </div>
           ))}
         </div>
