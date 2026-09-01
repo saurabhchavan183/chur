@@ -14,7 +14,7 @@ export default function Editor({ problemId, problemName, goBack }) {
   const [showRunPage, setShowRunPage] = useState(false);
   const [testCases, setTestCases] = useState([]);
   const [customInput, setCustomInput] = useState("");
-  const [results, setResults] = useState({}); // Stores output & match status per test index
+  const [results, setResults] = useState({});
   const [pyodide, setPyodide] = useState(null);
 
   const delInt = useRef(null);
@@ -22,25 +22,31 @@ export default function Editor({ problemId, problemName, goBack }) {
 
   const vibrate = () => { if (navigator.vibrate) navigator.vibrate(40); };
 
-  // Load Pyodide and cached Test Cases on mount
   useEffect(() => {
     const cached = localStorage.getItem(`cf_prob_${problemId}`);
     if (cached) {
-      setTestCases(JSON.parse(cached).testCases || []);
+      try {
+        setTestCases(JSON.parse(cached).testCases || []);
+      } catch (e) {
+        setTestCases([]);
+      }
     }
 
     const script = document.createElement('script');
     script.src = 'https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js';
     script.async = true;
     script.onload = async () => {
-      const py = await window.loadPyodide();
-      setPyodide(py);
+      try {
+        const py = await window.loadPyodide();
+        setPyodide(py);
+      } catch (err) {
+        console.error("Pyodide load failed", err);
+      }
     };
     document.body.appendChild(script);
     return () => { if (document.body.contains(script)) document.body.removeChild(script); };
   }, [problemId]);
 
-  // --- Pyodide Test Execution ---
   const executeTest = async (inputStr, expectedStr, index) => {
     vibrate();
     if (!pyodide) return alert("Pyodide Engine is still loading...");
@@ -51,10 +57,10 @@ export default function Editor({ problemId, problemName, goBack }) {
     pyodide.setStdout({ batched: (msg) => { outBuf += msg + "\n"; } });
     pyodide.setStderr({ batched: (msg) => { outBuf += msg + "\n"; } });
 
-    let inputLines = inputStr.trim().split('\n');
+    let inputLines = (inputStr || "").trim().split('\n');
     pyodide.setStdin({
       stdin: () => {
-        if (inputLines.length === 0 || (inputLines.length === 1 && inputLines[0] === "")) return ""; // Simulate EOF
+        if (inputLines.length === 0 || (inputLines.length === 1 && inputLines[0] === "")) return "";
         return inputLines.shift() + '\n';
       }
     });
@@ -63,7 +69,7 @@ export default function Editor({ problemId, problemName, goBack }) {
       await pyodide.runPythonAsync(code);
       const actualOut = outBuf.trim();
       let match = null;
-      if (expectedStr !== null) {
+      if (expectedStr !== null && expectedStr !== undefined) {
         match = actualOut === expectedStr.trim();
       }
       setResults(prev => ({ ...prev, [index]: { running: false, out: actualOut, match } }));
@@ -91,7 +97,6 @@ export default function Editor({ problemId, problemName, goBack }) {
 
   const handleUndo = () => { vibrate(); if (editorView) undo(editorView); };
   const handleRedo = () => { vibrate(); if (editorView) redo(editorView); };
-  
   const handleCopy = () => { vibrate(); copyToClipboard(code); alert("Code copied to clipboard!"); };
   
   const handleDownload = () => {
@@ -111,9 +116,10 @@ export default function Editor({ problemId, problemName, goBack }) {
 
   const handleSubmit = () => {
     vibrate();
-    const textToCopy = `# ${problemName}\n${code}`;
+    const textToCopy = `# ${problemName || problemId}\n${code}`;
     copyToClipboard(textToCopy);
-    const contestId = problemId.match(/^\d+/)[0];
+    const contestMatch = (problemId || "").match(/^\d+/);
+    const contestId = contestMatch ? contestMatch[0] : "";
     window.open(`https://codeforces.com/contest/${contestId}/submit`, '_blank');
   };
 
@@ -200,11 +206,11 @@ export default function Editor({ problemId, problemName, goBack }) {
 
   const insertSnippet = (t) => {
     vibrate();
-    if (!editorView) return;
+    if (!editorView || !t) return;
     const { state, dispatch } = editorView;
     const sel = state.selection.main;
     let idx = t.indexOf('\\');
-    let str = t.replace('\\', '');
+    let str = t.replace(/\\/g, '');
     let nA = sel.from + (idx !== -1 ? idx : str.length);
     dispatch({ changes: { from: sel.from, to: sel.to, insert: str }, selection: { anchor: nA } });
     setActiveLayer('alphabets');
@@ -286,6 +292,14 @@ export default function Editor({ problemId, problemName, goBack }) {
     [ { w: 'permutations', m: 'itertools', c: 'bg-cyan-700' }, { w: 'combinations', m: 'itertools', c: 'bg-cyan-700' }, { w: 'combinations_with_replacement', m: 'itertools', c: 'bg-cyan-700' }, { w: 'product', m: 'itertools', c: 'bg-cyan-700' }, { w: 'accumulate', m: 'itertools', c: 'bg-cyan-700' }, { w: 'chain', m: 'itertools', c: 'bg-cyan-700' }, { w: 'groupby', m: 'itertools', c: 'bg-cyan-700' } ]
   ];
 
+  const SNIPPETS = [
+    [ { t: 't=int(input())', c: 'bg-red-700' }, { t: 'for i in range(\\):', c: 'bg-orange-700' } ],
+    [ { t: 'for _ in range(t):', c: 'bg-amber-700' }, { t: 'for z in \\:', c: 'bg-green-700' } ],
+    [ { t: 'for i,z in enumerate(\\):', c: 'bg-teal-700' } ],
+    [ { t: 'map(int, input().split())', c: 'bg-blue-700' } ],
+    [ { t: 'list(map(int, input().split()))', c: 'bg-indigo-700' } ]
+  ];
+
   const btnClass = "flex items-center justify-center bg-gray-700 rounded-xl active:bg-gray-500 font-mono text-3xl shadow-sm text-gray-100 h-[50px]";
   const btnRowClass = "flex justify-center gap-2 w-full";
 
@@ -293,8 +307,6 @@ export default function Editor({ problemId, problemName, goBack }) {
   if (showRunPage) {
     return (
       <div className="fixed top-0 left-0 w-full h-[100dvh] flex flex-col bg-gray-900 text-white z-50">
-        
-        {/* Top Bar (Identical layout, Undo/Redo visually disabled) */}
         <div className="shrink-0 flex items-center justify-between bg-gray-800 p-2 border-b border-gray-700 text-xl font-bold w-full">
           <button onClick={() => { vibrate(); setShowRunPage(false); }} className="px-2 py-1 bg-gray-700 rounded text-sm">←</button>
           <button className="px-2 text-gray-400 opacity-50 cursor-not-allowed">↶</button>
@@ -308,7 +320,6 @@ export default function Editor({ problemId, problemName, goBack }) {
         <div className="flex-1 w-full overflow-y-auto p-2 bg-gray-950 pb-10">
           {!pyodide && <div className="text-center text-gray-500 my-4 text-sm font-mono animate-pulse">Loading Pyodide Engine...</div>}
 
-          {/* Render Extracted Test Cases */}
           {testCases.map((tc, idx) => (
             <div key={idx} className="bg-gray-800 p-3 mb-3 rounded-lg border border-gray-700 shadow-md">
               <div className="flex justify-between items-center mb-2">
@@ -338,7 +349,6 @@ export default function Editor({ problemId, problemName, goBack }) {
             </div>
           ))}
 
-          {/* Custom Input Section */}
           <div className="bg-gray-800 p-3 mb-6 rounded-lg border border-blue-900 shadow-md mt-6 relative overflow-hidden">
             <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
             <div className="flex justify-between items-center mb-2 pl-2">
@@ -374,7 +384,6 @@ export default function Editor({ problemId, problemName, goBack }) {
   // --- EDITOR VIEW ---
   return (
     <div className="fixed top-0 left-0 w-full h-[100dvh] flex flex-col bg-gray-900 text-white z-50">
-      
       <div className="shrink-0 flex items-center justify-between bg-gray-800 p-2 border-b border-gray-700 text-xl font-bold w-full">
         <button onClick={() => { vibrate(); goBack(); }} className="px-2 py-1 bg-gray-700 rounded text-sm">←</button>
         <button className="px-2 text-gray-400 active:text-white" onClick={handleUndo}>↶</button>
@@ -489,11 +498,24 @@ export default function Editor({ problemId, problemName, goBack }) {
             </div>
           )}
 
-          {activeLayer === 'snippets' && SNIPPETS.map((row, i) => (
-            <div key={i} className="flex gap-2 w-full">
-              {row.map(s => ( <button key={s.t} onClick={() => insertSnippet(s.t)} style={{ flex: 1 }} className={`h-[50px] flex items-center justify-center rounded-xl active:opacity-80 shadow-sm font-mono text-base font-medium text-gray-100 ${s.c}`}>{s.t}</button> ))}
+          {activeLayer === 'snippets' && (
+            <div className="flex flex-col gap-2 w-full">
+              {SNIPPETS.map((row, i) => (
+                <div key={i} className="flex gap-2 w-full">
+                  {row.map(s => ( 
+                    <button 
+                      key={s.t} 
+                      onClick={() => insertSnippet(s.t)} 
+                      style={{ flex: 1 }} 
+                      className={`h-[50px] flex items-center justify-center rounded-xl active:opacity-80 shadow-sm font-mono text-base font-medium text-gray-100 ${s.c}`}
+                    >
+                      {s.t}
+                    </button> 
+                  ))}
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
       </div>
     </div>
